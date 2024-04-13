@@ -10,6 +10,11 @@
 pipeline {
     agent any
     
+    parameters {
+        choice(name: 'NAMESPACE', choices: ['namespace1', 'namespace2'], description: 'Select the namespace for deployment')
+        choice(name: 'ENVIRONMENT', choices: ['staging', 'dev', 'prod'], description: 'Select the environment for deployment')
+    }
+    
     environment {
         DOCKER_REGISTRY = '123456789012.dkr.ecr.us-east-1.amazonaws.com' // Replace with your ECR registry
         EKS_CLUSTER_NAME = 'your-eks-cluster-name'
@@ -49,7 +54,9 @@ pipeline {
         stage('Deploy to EKS') {
             steps {
                 script {
-                    sh "kubectl apply -f path/to/your/manifests/your-manifest-file.yaml --kubeconfig /path/to/your/kubeconfig"
+                    def manifestPath = "path/to/your/manifests/your-manifest-file.yaml"
+                    def kubeconfigPath = "/path/to/your/kubeconfig"
+                    sh "kubectl apply -f ${manifestPath} --kubeconfig ${kubeconfigPath} --namespace=${params.NAMESPACE} --env=${params.ENVIRONMENT}"
                 }
             }
         }
