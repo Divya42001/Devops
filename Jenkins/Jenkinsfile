@@ -1,52 +1,66 @@
 // Jenkins installed and configured.
-// Docker installed on the Jenkins agent.
-// AWS CLI installed on the Jenkins agent.
-// Jenkins plugins: Docker Pipeline, AWS Steps, AWS CLI, Pipeline, Git.
-
-
-// Pipeline Steps:
-// Build Stage: Build the Java application and package it into a Docker container.
-// Test Stage: Run tests on the Java application.
-// Deploy Stage: Deploy the containerized application to Amazon EKS using AWS SAM.
-
+// Amazon EKS cluster created and configured.
+// Docker installed on Jenkins server.
+// Necessary plugins installed in Jenkins:
+// Pipeline
+// Amazon ECR plugin
+// Kubernetes Continuous Deploy plugin
+// Docker Pipeline plugin
 
 pipeline {
     agent any
-
+    
     environment {
-        DOCKER_IMAGE_TAG = "latest"
-        AWS_REGION = "ap-south-1"
-        AWS_ECR_REPO = "Halfway-ecr-repo"
-        AWS_EKS_CLUSTER_NAME = "Halfway-eks-cluster"
-        AWS_SAM_STACK_NAME = "your-sam-stack-name"
+        DOCKER_REGISTRY = '123456789012.dkr.ecr.us-east-1.amazonaws.com' // Replace with your ECR registry
+        EKS_CLUSTER_NAME = 'your-eks-cluster-name'
     }
-
+    
     stages {
-        stage('Build') {
+        stage('Checkout Application Code') {
             steps {
-                echo "Building Docker image..."
-                sh "docker build -t $AWS_ECR_REPO:$DOCKER_IMAGE_TAG ."
-                echo "Logging in to AWS ECR..."
-                sh "aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ECR_REPO"
-                echo "Pushing Docker image to ECR..."
-                sh "docker push $AWS_ECR_REPO:$DOCKER_IMAGE_TAG"
+                git branch: 'main', credentialsId: 'your-git-credentials', url: 'https://bitbucket.org/your-organization/your-application-repo.git'
             }
         }
-
-        stage('Test') {
+        
+        stage('Checkout Manifests') {
             steps {
-                echo "Running tests..."
-                // Add your testing commands here
+                git branch: 'main', credentialsId: 'your-git-credentials', url: 'https://bitbucket.org/your-organization/your-manifests-repo.git'
             }
         }
-
-        steps {
-        script {
-            withAWS(region: AWS_REGION) {
-                sh "kubectl config use-context ${AWS_EKS_CLUSTER_NAME}"
-                sh "kubectl apply -f deployment.yaml"
+        
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build('your-image-name:latest')
+                }
+            }
+        }
+        
+        stage('Push to ECR') {
+            steps {
+                script {
+                    docker.withRegistry('https://'+env.DOCKER_REGISTRY, 'ecr:us-east-1:aws-credentials') {
+                        docker.image('your-image-name:latest').push('latest')
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy to EKS') {
+            steps {
+                script {
+                    sh "kubectl apply -f path/to/your/manifests/your-manifest-file.yaml --kubeconfig /path/to/your/kubeconfig"
+                }
             }
         }
     }
+    
+    post {
+        success {
+            echo 'Deployment successful!'
+        }
+        failure {
+            echo 'Deployment failed!'
+        }
     }
 }
