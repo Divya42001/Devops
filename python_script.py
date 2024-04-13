@@ -30,3 +30,6 @@ def export_redis_data_to_s3():
 
 if __name__ == "__main__":
     export_redis_data_to_s3()
+
+
+# I am running this script from aws instance ,IAM role attached which has access on s3 to put objects
